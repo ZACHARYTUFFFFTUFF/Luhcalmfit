@@ -1,0 +1,243 @@
+-- [[ CONFIGURATION ]] --
+local FREEZE_KEY = Enum.KeyCode.F    
+local FREEZE_DURATION = 0.35         
+local GLOW_COLOR = Color3.fromRGB(255, 0, 0) 
+local GRID_SPACING = 20 
+
+local Player = game:GetService("Players").LocalPlayer
+local UIS = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+if PlayerGui:FindFirstChild("UltraFreezeUI") then PlayerGui.UltraFreezeUI:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "UltraFreezeUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = PlayerGui
+
+-- [[ MAIN CONTAINER ]] --
+local MainContainer = Instance.new("Frame")
+MainContainer.Name = "MainContainer"
+MainContainer.Size = UDim2.new(0, 200, 0, 90)
+MainContainer.Position = UDim2.new(0.5, -100, 0.5, -45)
+MainContainer.BackgroundTransparency = 1
+MainContainer.Parent = ScreenGui
+
+local OutlineFrame = Instance.new("Frame")
+OutlineFrame.Size = UDim2.new(1, 10, 1, 10) 
+OutlineFrame.Position = UDim2.new(0, -5, 0, -5)
+OutlineFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+OutlineFrame.BorderSizePixel = 0
+OutlineFrame.ZIndex = 8
+OutlineFrame.Parent = MainContainer
+
+local OuterGlow = Instance.new("UIStroke")
+OuterGlow.Thickness = 4
+OuterGlow.Color = GLOW_COLOR
+OuterGlow.Parent = OutlineFrame
+
+local UIStrokeGradient = Instance.new("UIGradient")
+UIStrokeGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 0)),
+    ColorSequenceKeypoint.new(0.5, GLOW_COLOR),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(60, 0, 0))
+})
+UIStrokeGradient.Parent = OutlineFrame
+
+-- [[ SETTINGS BUTTON ]] --
+local SettingsToggle = Instance.new("TextButton")
+SettingsToggle.Name = "SettingsToggle"
+SettingsToggle.Size = UDim2.new(0, 25, 0, 25)
+SettingsToggle.Position = UDim2.new(0, 5, 0, 5) 
+SettingsToggle.BackgroundColor3 = Color3.fromRGB(20, 0, 0)
+SettingsToggle.BorderSizePixel = 1
+SettingsToggle.BorderColor3 = GLOW_COLOR
+SettingsToggle.Text = "[#]"
+SettingsToggle.TextColor3 = GLOW_COLOR
+SettingsToggle.Font = Enum.Font.Code
+SettingsToggle.TextSize = 14
+SettingsToggle.ZIndex = 15
+SettingsToggle.Parent = MainContainer
+
+-- [[ DRAG LOCK TOGGLE (TOP RIGHT) ]] --
+local CanMove = false
+local DragToggle = Instance.new("TextButton")
+DragToggle.Name = "DragToggle"
+DragToggle.Size = UDim2.new(0, 65, 0, 20)
+DragToggle.Position = UDim2.new(1, -70, 0, 5)
+DragToggle.BackgroundColor3 = Color3.fromRGB(40, 0, 0)
+DragToggle.BorderSizePixel = 1
+DragToggle.BorderColor3 = Color3.fromRGB(255, 0, 0)
+DragToggle.Text = "MOVE: OFF"
+DragToggle.TextColor3 = Color3.fromRGB(255, 0, 0)
+DragToggle.Font = Enum.Font.GothamBold
+DragToggle.TextSize = 10
+DragToggle.ZIndex = 15
+DragToggle.Parent = MainContainer
+
+DragToggle.MouseButton1Click:Connect(function()
+    CanMove = not CanMove
+    if CanMove then
+        DragToggle.Text = "MOVE: ON"
+        DragToggle.TextColor3 = Color3.fromRGB(0, 255, 0)
+        DragToggle.BorderColor3 = Color3.fromRGB(0, 255, 0)
+    else
+        DragToggle.Text = "MOVE: OFF"
+        DragToggle.TextColor3 = Color3.fromRGB(255, 0, 0)
+        DragToggle.BorderColor3 = Color3.fromRGB(255, 0, 0)
+    end
+end)
+
+-- [[ THE MAIN FREEZE BUTTON ]] --
+local FreezeButton = Instance.new("TextButton")
+FreezeButton.Size = UDim2.new(1, 0, 1, 0)
+FreezeButton.Text = "FREEZE"
+FreezeButton.Font = Enum.Font.GothamBold
+FreezeButton.TextSize = 30
+FreezeButton.TextColor3 = GLOW_COLOR 
+FreezeButton.BackgroundColor3 = Color3.fromRGB(15, 5, 5)
+FreezeButton.BorderSizePixel = 0
+FreezeButton.ZIndex = 10
+FreezeButton.Parent = MainContainer
+
+-- Grid Logic
+local function ClearGrid()
+    for _, v in pairs(FreezeButton:GetChildren()) do if v:IsA("Frame") then v:Destroy() end end
+end
+
+local function DrawGrid()
+    ClearGrid()
+    local w, h = MainContainer.AbsoluteSize.X, MainContainer.AbsoluteSize.Y
+    for i = 1, math.ceil(h/GRID_SPACING) do
+        local L = Instance.new("Frame", FreezeButton)
+        L.Size, L.Position = UDim2.new(1, 0, 0, 1), UDim2.new(0, 0, 0, i * GRID_SPACING)
+        L.BackgroundColor3, L.BackgroundTransparency, L.BorderSizePixel, L.ZIndex = GLOW_COLOR, 0.85, 0, 11
+    end
+    for i = 1, math.ceil(w/GRID_SPACING) do
+        local L = Instance.new("Frame", FreezeButton)
+        L.Size, L.Position = UDim2.new(0, 1, 1, 0), UDim2.new(0, i * GRID_SPACING, 0, 0)
+        L.BackgroundColor3, L.BackgroundTransparency, L.BorderSizePixel, L.ZIndex = GLOW_COLOR, 0.85, 0, 11
+    end
+end
+DrawGrid()
+
+-- [[ SETTINGS PANEL ]] --
+local SettingsFrame = Instance.new("ScrollingFrame")
+SettingsFrame.Name = "SettingsFrame"
+SettingsFrame.Size = UDim2.new(0, 220, 0, 0)
+SettingsFrame.Position = UDim2.new(1, 15, 0, -10)
+SettingsFrame.BackgroundColor3 = Color3.fromRGB(10, 0, 0)
+SettingsFrame.BorderSizePixel = 2
+SettingsFrame.BorderColor3 = GLOW_COLOR
+SettingsFrame.ScrollBarThickness = 6
+SettingsFrame.Visible = false
+SettingsFrame.CanvasSize = UDim2.new(0, 0, 0, 250)
+SettingsFrame.Parent = MainContainer
+
+local UIList = Instance.new("UIListLayout", SettingsFrame)
+UIList.Padding = UDim.new(0, 15)
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIList.VerticalAlignment = Enum.VerticalAlignment.Top
+
+local function CreateSlider(name, min, max, default, callback)
+    local Group = Instance.new("Frame", SettingsFrame)
+    Group.Size = UDim2.new(0.9, 0, 0, 55)
+    Group.BackgroundTransparency = 1
+
+    local Title = Instance.new("TextLabel", Group)
+    Title.Size = UDim2.new(1, 0, 0, 25)
+    Title.BackgroundTransparency = 1
+    Title.TextColor3 = GLOW_COLOR
+    Title.Text = name:upper()
+    Title.Font = Enum.Font.GothamBold
+    Title.TextSize = 14
+    Title.ZIndex = 20
+
+    local Box = Instance.new("TextBox", Group)
+    Box.Size = UDim2.new(0, 160, 0, 28)
+    Box.Position = UDim2.new(0.5, -80, 0, 25)
+    Box.BackgroundColor3 = Color3.fromRGB(30, 0, 0)
+    Box.TextColor3 = Color3.new(1, 1, 1)
+    Box.Text = tostring(default)
+    Box.BorderSizePixel = 1
+    Box.BorderColor3 = Color3.fromRGB(120, 0, 0)
+    Box.Font = Enum.Font.Code
+    Box.TextSize = 16
+    Box.ZIndex = 20
+    
+    Box.FocusLost:Connect(function()
+        local val = tonumber(Box.Text)
+        if val then
+            val = math.clamp(val, min, max)
+            Box.Text = tostring(val)
+            callback(val)
+        end
+    end)
+end
+
+CreateSlider("Freeze Duration", 0.1, 100, FREEZE_DURATION, function(v) FREEZE_DURATION = v end)
+CreateSlider("UI WIDTH", 100, 700, 200, function(v) 
+    MainContainer.Size = UDim2.new(0, v, 0, MainContainer.Size.Y.Offset)
+    DrawGrid()
+    DragToggle.Position = UDim2.new(1, -70, 0, 5) -- Keep toggle in corner
+end)
+CreateSlider("UI HEIGHT", 50, 350, 90, function(v) 
+    MainContainer.Size = UDim2.new(0, MainContainer.Size.X.Offset, 0, v)
+    DrawGrid()
+end)
+
+SettingsToggle.MouseButton1Click:Connect(function()
+    SettingsFrame.Visible = not SettingsFrame.Visible
+    local targetSize = SettingsFrame.Visible and UDim2.new(0, 220, 0, 200) or UDim2.new(0, 220, 0, 0)
+    TweenService:Create(SettingsFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+end)
+
+-- [[ CORE FREEZE LOGIC ]] --
+local Overlay = Instance.new("Frame", ScreenGui)
+Overlay.Size, Overlay.BackgroundColor3, Overlay.BackgroundTransparency, Overlay.ZIndex = UDim2.new(1, 0, 1, 0), GLOW_COLOR, 1, 20
+
+local function TriggerFreeze()
+    TweenService:Create(FreezeButton, TweenInfo.new(0.05), {BackgroundColor3 = GLOW_COLOR, TextColor3 = Color3.new(0,0,0)}):Play()
+    TweenService:Create(Overlay, TweenInfo.new(0.05), {BackgroundTransparency = 0.65}):Play()
+    local startTime = os.clock()
+    while os.clock() - startTime < FREEZE_DURATION do for _ = 1, 700000 do end end
+    TweenService:Create(Overlay, TweenInfo.new(0.1), {BackgroundTransparency = 1}):Play()
+    TweenService:Create(FreezeButton, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(15, 5, 5), TextColor3 = GLOW_COLOR}):Play()
+end
+
+UIS.InputBegan:Connect(function(i, g) if not g and i.KeyCode == FREEZE_KEY then TriggerFreeze() end end)
+FreezeButton.MouseButton1Click:Connect(TriggerFreeze)
+
+-- [[ UPDATED DRAGGING LOGIC ]] --
+local dragging = false
+local dragStart, startPos
+
+FreezeButton.InputBegan:Connect(function(input)
+    if not CanMove then return end -- PREVENT DRAG IF LOCKED
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainContainer.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging and CanMove and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        local t = TweenService:Create(UIStrokeGradient, TweenInfo.new(1.2, Enum.EasingStyle.Linear), {Rotation = 360})
+        t:Play() t.Completed:Wait() UIStrokeGradient.Rotation = 0
+    end
+end)
